@@ -46,6 +46,7 @@ public class ReconciliationJob {
                             + ") venue(status=" + venue.status() + ",filled=" + venue.filledQuantity() + ")"
             ));
 
+            // Venue snapshot is treated as the source of truth during correction.
             local.setStatus(venue.status());
             resetFilled(local, venue.filledQuantity());
             corrected.add(venue.orderId());

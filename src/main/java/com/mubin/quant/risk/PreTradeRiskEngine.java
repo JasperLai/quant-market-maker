@@ -14,6 +14,7 @@ public class PreTradeRiskEngine {
     }
 
     public RiskDecision check(Order order, double referenceMidPrice) {
+        // Use notional/amount as the first hard stop to short-circuit expensive checks.
         if (order.getNotional() > config.singleOrderNotionalLimit()) {
             return RiskDecision.fail("SINGLE_ORDER_LIMIT_EXCEEDED");
         }
@@ -32,6 +33,7 @@ public class PreTradeRiskEngine {
     }
 
     public void onTradeBooked(Order order, double executedQuantity) {
+        // Exposure accounting follows product-specific units: FX by notional, Gold by grams.
         if (order.getAssetClass() == AssetClass.FX) {
             dailyExposureTracker.addFxNotional(order.getNotional());
         } else {

@@ -31,6 +31,7 @@ public class TradingCoreService {
                               AuditSink auditSink,
                               long reorderWindowMs,
                               long rfqTimeoutMs) {
+        // Share one state machine across execution and RFQ timeout handling to keep transitions consistent.
         OrderStateMachine stateMachine = new OrderStateMachine();
         this.preTradeRiskEngine = preTradeRiskEngine;
         this.executionReportProcessor = new ExecutionReportProcessor(reorderWindowMs, stateMachine, auditSink);
@@ -40,6 +41,7 @@ public class TradingCoreService {
     }
 
     public SubmitOrderResult submitOrder(Order order, double referenceMidPrice, boolean rfqMode, long nowTs) {
+        // Every order enters through pre-trade risk gates before being visible to downstream flows.
         RiskDecision decision = preTradeRiskEngine.check(order, referenceMidPrice);
         if (!decision.passed()) {
             return SubmitOrderResult.reject(decision.reason());
@@ -53,6 +55,7 @@ public class TradingCoreService {
     }
 
     public void onExecutionReport(ExecutionReport report) {
+        // Report processor handles dedup and reordering before mutating order state.
         executionReportProcessor.onReport(report, orders);
 
         if (report.eventType() == OrderEventType.FILL || report.eventType() == OrderEventType.PARTIAL_FILL) {

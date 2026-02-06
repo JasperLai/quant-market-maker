@@ -34,6 +34,7 @@ public class OrderStateMachine {
         if (eventToNext == null) {
             return current;
         }
+        // Unknown transitions are intentionally no-op to enforce monotonic state progression.
         return eventToNext.getOrDefault(eventType, current);
     }
 

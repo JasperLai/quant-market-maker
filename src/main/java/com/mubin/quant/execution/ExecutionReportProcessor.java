@@ -35,6 +35,7 @@ public class ExecutionReportProcessor {
 
     public void onReport(ExecutionReport report, Map<String, Order> orderById) {
         String dedupKey = report.dedupKey();
+        // Idempotency first: duplicate execution reports must not advance state twice.
         if (!seenReportKeys.add(dedupKey)) {
             auditSink.publish(AuditEvent.of(
                     AuditEventType.DUPLICATE_REPORT,
@@ -48,6 +49,7 @@ public class ExecutionReportProcessor {
         buffer.add(report);
         maxBusinessTsSeen = Math.max(maxBusinessTsSeen, report.businessTs());
 
+        // Watermark-based flush keeps bounded reordering while allowing minor out-of-order arrival.
         long flushWatermark = maxBusinessTsSeen - reorderWindowMs;
         flushEligible(flushWatermark, orderById);
     }
@@ -78,6 +80,7 @@ public class ExecutionReportProcessor {
 
         OrderStatus prev = order.getStatus();
         OrderStatus next = stateMachine.apply(prev, report.eventType());
+        // If a transition event produces no state change, treat it as a conflict and audit explicitly.
         if (next == prev && isStateChangeEvent(report.eventType())) {
             auditSink.publish(AuditEvent.of(
                     AuditEventType.STATE_CONFLICT,

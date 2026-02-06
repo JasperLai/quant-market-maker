@@ -28,6 +28,7 @@ public class RfqLifecycleManager {
     }
 
     public void registerRfq(String orderId, long sentTs) {
+        // Deadline is tracked per order to support periodic timeout scans.
         rfqDeadlines.put(orderId, sentTs + timeoutMs);
     }
 

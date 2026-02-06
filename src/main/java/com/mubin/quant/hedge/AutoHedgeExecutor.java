@@ -40,6 +40,7 @@ public class AutoHedgeExecutor {
         }
 
         if (plan.action() == HedgeAction.WAIT) {
+            // WAIT means the strategy intentionally defers execution for better liquidity/price conditions.
             auditSink.publish(AuditEvent.of(
                     AuditEventType.HEDGE_WAITED,
                     symbol,
@@ -63,6 +64,7 @@ public class AutoHedgeExecutor {
             double notional = toNotional(assetClass, child.quantity(), child.price());
             Order order = new Order(orderId, assetClass, child.symbol(), child.side(), child.price(), child.quantity(), notional);
             SubmitOrderResult submit = tradingCoreService.submitOrder(order, plan.estimatedVwap(), false, nowTs);
+            // Stop cascading child orders when risk rejects one to avoid partial uncontrolled bursts.
             if (!submit.accepted()) {
                 break;
             }

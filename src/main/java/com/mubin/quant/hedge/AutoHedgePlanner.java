@@ -21,6 +21,7 @@ public class AutoHedgePlanner {
     public HedgePlan plan(AssetClass assetClass, String symbol, PositionSnapshot position, BookManager bookManager, long nowTs) {
         double netQty = position.netQuantity();
         double absNetQty = Math.abs(netQty);
+        // Trigger only when residual exposure exceeds configured tolerance.
         if (absNetQty <= config.triggerPositionQty()) {
             return HedgePlan.noAction("POSITION_BELOW_TRIGGER");
         }
@@ -33,6 +34,7 @@ public class AutoHedgePlanner {
             return HedgePlan.waitPlan("NO_LIQUIDITY", requestedQty, 0.0, 0.0, 0.0, nowTs + config.waitMs());
         }
 
+        // Planned qty is bounded by both residual exposure and participation-limited market capacity.
         double maxTradableQty = maxTradableByParticipation(levels);
         double plannedQty = Math.min(requestedQty, maxTradableQty);
         if (plannedQty < config.minChildQty()) {
@@ -47,8 +49,10 @@ public class AutoHedgePlanner {
         }
 
         double actualPlannedQty = childOrders.stream().mapToDouble(HedgeChildOrder::quantity).sum();
+        // VWAP is computed from the actual child orders that will be sent, not from theoretical depth.
         double vwap = childOrders.stream().mapToDouble(order -> order.quantity() * order.price()).sum() / actualPlannedQty;
         double pnlBps = estimatePnlBps(position.avgPrice(), vwap, hedgeSide);
+        // PnL gate allows strategic waiting when hedge price is temporarily unfavorable.
         if (pnlBps < config.minPnlBps()) {
             return HedgePlan.waitPlan("PNL_GATE_NOT_MET", requestedQty, actualPlannedQty, vwap, pnlBps,
                     nowTs + config.waitMs());
@@ -61,6 +65,7 @@ public class AutoHedgePlanner {
         List<QuoteEvent> levels = new ArrayList<>();
 
         if (assetClass == AssetClass.GOLD) {
+            // Gold hedging prefers domestic liquidity first, then offshore fallback.
             levels.addAll(bookManager.topLevels(BookType.DOMESTIC_MM, symbol, side, config.bookDepth()));
             if (levels.isEmpty()) {
                 levels.addAll(bookManager.topLevels(BookType.OFFSHORE_HEDGE, symbol, side, config.bookDepth()));
@@ -68,6 +73,7 @@ public class AutoHedgePlanner {
             return levels;
         }
 
+        // FX defaults to offshore hedge book; fallback keeps strategy resilient during feed gaps.
         levels.addAll(bookManager.topLevels(BookType.OFFSHORE_HEDGE, symbol, side, config.bookDepth()));
         if (levels.isEmpty()) {
             levels.addAll(bookManager.topLevels(BookType.DOMESTIC_MM, symbol, side, config.bookDepth()));

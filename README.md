@@ -14,6 +14,8 @@ A baseline implementation for a FX + Gold market making system.
 - Reconciliation job for local-vs-venue correction
 - Auto-hedge strategy engine (trigger by position, VWAP + volume slicing, PnL gate wait)
 - Lightweight HTTP query API for health/order/position/book data
+- RocketMQ adapter for platform quote ingestion
+- SO adapter skeleton with JNI placeholder for dimple integration
 - Unit tests for core behaviors
 
 ## Build
@@ -35,6 +37,12 @@ java -cp target/quant-market-maker-0.1.0-SNAPSHOT.jar com.mubin.quant.App
 - `GET /orders?id=<orderId>`
 - `GET /positions?symbol=<symbol>`
 - `GET /books?type=DOMESTIC_MM|OFFSHORE_HEDGE&symbol=<symbol>&side=BUY|SELL&depth=5`
+
+## Ingestion Adapters
+
+- RocketMQ consumer: `com.mubin.quant.adapter.mq.RocketMqQuoteConsumer`
+- SO/JNI bridge: `com.mubin.quant.adapter.so.JniDimpleSoBridge`
+- Local orchestration entry: `com.mubin.quant.adapter.IngestionRuntime`
 
 ## Defaults
 
